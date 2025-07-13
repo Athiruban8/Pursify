@@ -103,9 +103,12 @@ export async function bulkDeleteTransactions(transactionIds) {
     });
 
     revalidatePath("/dashboard");
-    revalidatePath("/account/[id]");
+    // Revalidate all affected account pages
+    for (const accountId of Object.keys(accountBalanceChanges)) {
+      revalidatePath(`/account/${accountId}`);
+    }
 
-    return { success: true };
+    return { success: true, deletedIds: transactionIds };
   } catch (error) {
     return { success: false, error: error.message };
   }

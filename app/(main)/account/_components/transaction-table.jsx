@@ -1,4 +1,4 @@
-  "use client";
+"use client";
 
 import { useState, useEffect, useMemo } from "react";
 import {
@@ -187,7 +187,11 @@ export function TransactionTable({ transactions }) {
   
   useEffect(() => {
     if (deleted && !deleteLoading) {
-      toast.message("Transactions deleted successfully");
+      if (deleted.success === false) {
+        toast.error(deleted.error || "Failed to delete transactions");
+      } else {
+        toast.message("Transactions deleted successfully");
+      }
     }
   }, [deleted, deleteLoading]);
 
@@ -383,8 +387,8 @@ export function TransactionTable({ transactions }) {
                         : "text-green-500"
                     )}
                   >
-                    {transaction.type === "EXPENSE" ? "-" : "+"}$
-                    {transaction.amount.toFixed(2)}
+                    {transaction.type === "EXPENSE" ? "-" : "+"}
+                    ₹{transaction.amount.toFixed(2)}
                   </TableCell>
                   <TableCell>
                     {transaction.isRecurring ? (
@@ -480,16 +484,18 @@ export function TransactionTable({ transactions }) {
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <DeleteConfirmationDialog
-            open={isDialogOpen}
-            onConfirm={handleDialogConfirm}
-            onCancel={handleDialogCancel}
-            title={`Confirm Deletion`}
-            description={`Are you sure you want to delete ${idsToDelete.length} selected ${idsToDelete.length === 1 ? "transaction" : "transactions"}? This action cannot be undone.`}
-            loading={deleteLoading}
-          />
         </div>
       )}
+
+      {/* Delete Confirmation Dialog - Always render */}
+      <DeleteConfirmationDialog
+        open={isDialogOpen}
+        onConfirm={handleDialogConfirm}
+        onCancel={handleDialogCancel}
+        title={`Confirm Deletion`}
+        description={`Are you sure you want to delete ${idsToDelete.length} selected ${idsToDelete.length === 1 ? "transaction" : "transactions"}? This action cannot be undone.`}
+        loading={deleteLoading}
+      />
     </div>
   );
 }
