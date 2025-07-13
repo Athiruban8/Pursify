@@ -9,10 +9,20 @@ import { request } from "@arcjet/next";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-const serializeAmount = (obj) => ({
-  ...obj,
-  amount: obj.amount.toNumber(),
-});
+const serializeAmount = (obj) => {
+  const serialized = { ...obj };
+  // Handle all Decimal fields
+  Object.keys(serialized).forEach((key) => {
+    if (
+      serialized[key] &&
+      typeof serialized[key] === "object" &&
+      serialized[key].toNumber
+    ) {
+      serialized[key] = serialized[key].toNumber();
+    }
+  });
+  return serialized;
+};
 
 // Create Transaction
 export async function createTransaction(data) {
@@ -91,9 +101,8 @@ export async function createTransaction(data) {
     });
 
     revalidatePath("/dashboard");
-    revalidatePath(`/account/${transaction.accountId}`);
-
-    return { success: true, data: serializeAmount(transaction) };
+    revalidatePath("/transaction");
+    return { success: true, data: transaction };
   } catch (error) {
     throw new Error(error.message);
   }
@@ -186,7 +195,7 @@ export async function updateTransaction(id, data) {
     });
 
     revalidatePath("/dashboard");
-    revalidatePath(`/account/${data.accountId}`);
+    revalidatePath("/transaction");
 
     return { success: true, data: serializeAmount(transaction) };
   } catch (error) {
@@ -221,7 +230,39 @@ export async function getUserTransactions(query = {}) {
       },
     });
 
-    return { success: true, data: transactions };
+    return { success: true, data: transactions.map(serializeAmount) };
+  } catch (error) {
+    throw new Error(error.message);
+  }
+}
+
+// Get All Transactions for the user
+export async function getAllTransactions() {
+  try {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+
+    const user = await db.user.findUnique({
+      where: { clerkUserId: userId },
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const transactions = await db.transaction.findMany({
+      where: {
+        userId: user.id,
+      },
+      include: {
+        account: true,
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
+
+    return transactions.map(serializeAmount);
   } catch (error) {
     throw new Error(error.message);
   }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   PieChart,
   Pie,
@@ -10,15 +11,8 @@ import {
   Legend,
 } from "recharts";
 import { format } from "date-fns";
-import { ArrowUpRight, ArrowDownRight } from "lucide-react";
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ArrowUpRight, ArrowDownRight, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -33,30 +27,59 @@ const COLORS = [
 ];
 
 export function DashboardOverview({ accounts, transactions }) {
+  const searchParams = useSearchParams();
   const [selectedAccountId, setSelectedAccountId] = useState(
-    accounts.find((a) => a.isDefault)?.id || accounts[0]?.id
+    searchParams.get("account") || "all"
   );
 
-  // Filter transactions for selected account
-  const accountTransactions = transactions.filter(
-    (t) => t.accountId === selectedAccountId
-  );
+  // Update selected account when URL changes
+  useEffect(() => {
+    const urlAccount = searchParams.get("account");
+    if (urlAccount) {
+      setSelectedAccountId(urlAccount);
+    } else {
+      setSelectedAccountId("all");
+    }
+  }, [searchParams]);
 
-  // Get recent transactions (last 5)
-  const recentTransactions = accountTransactions
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 5);
+  // Get recent transactions based on selection
+  const getRecentTransactions = () => {
+    let filteredTransactions = transactions;
+    if (selectedAccountId && selectedAccountId !== "all") {
+      filteredTransactions = transactions.filter(
+        (t) => t.accountId === selectedAccountId
+      );
+    }
+    return filteredTransactions
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5);
+  };
 
-  // Calculate expense breakdown for current month
+  const recentTransactions = getRecentTransactions();
+
+  // Calculate expense breakdown for current month for selected account
   const currentDate = new Date();
-  const currentMonthExpenses = accountTransactions.filter((t) => {
-    const transactionDate = new Date(t.date);
-    return (
-      t.type === "EXPENSE" &&
-      transactionDate.getMonth() === currentDate.getMonth() &&
-      transactionDate.getFullYear() === currentDate.getFullYear()
-    );
-  });
+  
+  const getCurrentMonthExpenses = () => {
+    let filteredTransactions = transactions;
+    
+    if (selectedAccountId !== "all") {
+      filteredTransactions = transactions.filter(
+        (t) => t.accountId === selectedAccountId
+      );
+    }
+    
+    return filteredTransactions.filter((t) => {
+      const transactionDate = new Date(t.date);
+      return (
+        t.type === "EXPENSE" &&
+        transactionDate.getMonth() === currentDate.getMonth() &&
+        transactionDate.getFullYear() === currentDate.getFullYear()
+      );
+    });
+  };
+
+  const currentMonthExpenses = getCurrentMonthExpenses();
 
   // Group expenses by category
   const expensesByCategory = currentMonthExpenses.reduce((acc, transaction) => {
@@ -76,32 +99,24 @@ export function DashboardOverview({ accounts, transactions }) {
     })
   );
 
+  // Helper function to get account name by ID
+  const getAccountName = (accountId) => {
+    const account = accounts.find(a => a.id === accountId);
+    return account ? account.name : 'Unknown Account';
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {/* Recent Transactions Card */}
-      <Card>
+      <Card className="flex flex-col h-full">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle className="text-base font-normal">
+          <CardTitle className="text-lg font-semibold">
             Recent Transactions
           </CardTitle>
-          <Select
-            value={selectedAccountId}
-            onValueChange={setSelectedAccountId}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Select account" />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.id}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+
+        <CardContent className="flex flex-col flex-1 justify-between">
+          <div className="space-y-4 flex-1">
             {recentTransactions.length === 0 ? (
               <p className="text-center text-muted-foreground py-4">
                 No recent transactions
@@ -116,30 +131,41 @@ export function DashboardOverview({ accounts, transactions }) {
                     <p className="text-sm font-medium leading-none">
                       {transaction.description || "Untitled Transaction"}
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(transaction.date), "PP")}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={cn(
-                        "flex items-center",
-                        transaction.type === "EXPENSE"
-                          ? "text-red-500"
-                          : "text-green-500"
-                      )}
-                    >
-                      {transaction.type === "EXPENSE" ? (
-                        <ArrowDownRight className="mr-1 h-4 w-4" />
-                      ) : (
-                        <ArrowUpRight className="mr-1 h-4 w-4" />
-                      )}
-                      ₹{transaction.amount.toFixed(2)}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>{format(new Date(transaction.date), "PP")}</span>
+                      <span>•</span>
+                      <span>{getAccountName(transaction.accountId)}</span>
                     </div>
+                  </div>
+                  <div
+                    className={cn(
+                      "flex items-center",
+                      transaction.type === "EXPENSE"
+                        ? "text-red-500"
+                        : "text-green-500"
+                    )}
+                  >
+                    {transaction.type === "EXPENSE" ? (
+                      <ArrowDownRight className="mr-1 h-4 w-4" />
+                    ) : (
+                      <ArrowUpRight className="mr-1 h-4 w-4" />
+                    )}
+                    ₹{transaction.amount.toFixed(2)}
                   </div>
                 </div>
               ))
             )}
+          </div>
+
+          <div className="pt-2 border-t mt-4">
+            <Link
+              href="/transaction"
+              prefetch={false}
+              className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Show all records
+              <ExternalLink className="h-3 w-3" />
+            </Link>
           </div>
         </CardContent>
       </Card>
@@ -147,7 +173,7 @@ export function DashboardOverview({ accounts, transactions }) {
       {/* Expense Breakdown Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-normal">
+          <CardTitle className="text-lg font-semibold">
             Monthly Expense Breakdown
           </CardTitle>
         </CardHeader>
@@ -157,14 +183,14 @@ export function DashboardOverview({ accounts, transactions }) {
               No expenses this month
             </p>
           ) : (
-            <div className="h-[300px]">
+            <div className="h-[250px] sm:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={pieChartData}
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
+                    outerRadius={window.innerWidth < 640 ? 60 : 80}
                     fill="#8884d8"
                     dataKey="value"
                     label={({ name, value }) => `${name}: ₹${value.toFixed(2)}`}
@@ -184,7 +210,15 @@ export function DashboardOverview({ accounts, transactions }) {
                       borderRadius: "var(--radius)",
                     }}
                   />
-                  <Legend />
+                  <Legend 
+                    layout="horizontal" 
+                    verticalAlign="bottom" 
+                    align="center"
+                    wrapperStyle={{
+                      fontSize: "12px",
+                      paddingTop: "10px"
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>

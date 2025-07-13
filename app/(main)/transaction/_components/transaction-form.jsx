@@ -116,9 +116,9 @@ export function AddTransactionForm({
           : "Transaction created successfully"
       );
       reset();
-      router.push(`/account/${transactionResult.data.accountId}`);
+      router.push("/dashboard");
     }
-  }, [transactionResult, transactionLoading, editMode]);
+  }, [transactionResult, transactionLoading, editMode, reset, router]);
 
   const type = watch("type");
   const isRecurring = watch("isRecurring");
@@ -180,7 +180,12 @@ export function AddTransactionForm({
             <SelectContent>
               {accounts.map((account) => (
                 <SelectItem key={account.id} value={account.id}>
-                  {account.name} (${parseFloat(account.balance).toFixed(2)})
+                  <div className="flex items-center justify-between w-full">
+                    <span>{account.name}</span>
+                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                      (₹{parseFloat(account.balance).toFixed(2)})
+                    </span>
+                  </div>
                 </SelectItem>
               ))}
               <CreateAccountDrawer>

@@ -6,16 +6,20 @@ import { revalidatePath } from "next/cache";
 
 const serializeDecimal = (obj) => {
   const serialized = { ...obj };
-  if (obj.balance) {
-    serialized.balance = obj.balance.toNumber();
-  }
-  if (obj.amount) {
-    serialized.amount = obj.amount.toNumber();
-  }
+  // Handle all Decimal fields
+  Object.keys(serialized).forEach((key) => {
+    if (
+      serialized[key] &&
+      typeof serialized[key] === "object" &&
+      serialized[key].toNumber
+    ) {
+      serialized[key] = serialized[key].toNumber();
+    }
+  });
   return serialized;
 };
 
-export async function getAccountWithTransactions(accountId) {
+export async function getAllAccounts() {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -25,27 +29,16 @@ export async function getAccountWithTransactions(accountId) {
 
   if (!user) throw new Error("User not found");
 
-  const account = await db.account.findUnique({
+  const accounts = await db.account.findMany({
     where: {
-      id: accountId,
       userId: user.id,
     },
-    include: {
-      transactions: {
-        orderBy: { date: "desc" },
-      },
-      _count: {
-        select: { transactions: true },
-      },
+    orderBy: {
+      name: "asc",
     },
   });
 
-  if (!account) return null;
-
-  return {
-    ...serializeDecimal(account),
-    transactions: account.transactions.map(serializeDecimal),
-  };
+  return accounts.map(serializeDecimal);
 }
 
 export async function bulkDeleteTransactions(transactionIds) {
@@ -69,10 +62,16 @@ export async function bulkDeleteTransactions(transactionIds) {
 
     // Group transactions by account to update balances
     const accountBalanceChanges = transactions.reduce((acc, transaction) => {
+      const amount =
+        typeof transaction.amount === "object" && transaction.amount.toNumber
+          ? transaction.amount.toNumber()
+          : transaction.amount;
+
       const change =
         transaction.type === "EXPENSE"
-          ? transaction.amount
-          : -transaction.amount;
+          ? amount // For expenses, we add the amount back (reverse the expense)
+          : -amount; // For income, we subtract the amount (reverse the income)
+
       acc[transaction.accountId] = (acc[transaction.accountId] || 0) + change;
       return acc;
     }, {});
@@ -103,10 +102,7 @@ export async function bulkDeleteTransactions(transactionIds) {
     });
 
     revalidatePath("/dashboard");
-    // Revalidate all affected account pages
-    for (const accountId of Object.keys(accountBalanceChanges)) {
-      revalidatePath(`/account/${accountId}`);
-    }
+    revalidatePath("/transaction");
 
     return { success: true, deletedIds: transactionIds };
   } catch (error) {
@@ -146,7 +142,7 @@ export async function updateDefaultAccount(accountId) {
     });
 
     revalidatePath("/dashboard");
-    return { success: true, data: serializeTransaction(account) };
+    return { success: true, data: serializeDecimal(account) };
   } catch (error) {
     return { success: false, error: error.message };
   }

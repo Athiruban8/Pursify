@@ -1,58 +1,79 @@
+"use client";
+
 import React from "react";
 import { Button } from "./ui/button";
-import { PenBox, LayoutDashboard } from "lucide-react";
+import { PenBox, LayoutDashboard, Receipt } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
-import { checkUser } from "@/lib/checkUser";
 import Image from "next/image";
 
-const Header = async () => {
-  await checkUser();
+const Header = () => {
+  const pathname = usePathname();
 
   return (
     <header className="fixed top-0 w-full bg-white/80 backdrop-blur-md z-50 border-b">
-      <nav className="container mx-auto px-2 py-2 flex items-center justify-between">
-        <Link href="/">
-          <Image
-            src="/pursify_logo.png"
-            alt="Pursify Logo"
-            width={160}
-            height={80}
-            className="w-auto max-h-[60px] object-contain"
-          />
-        </Link>
-
-        {/* Navigation Links - Different for signed in/out users */}
-        <div className="hidden md:flex items-center space-x-8">
+      <nav className="container mx-auto px-2 py-2 flex flex-row items-center justify-between gap-2">
+        <div className="flex items-center gap-4 sm:gap-8">
+          <SignedIn>
+            <Link href="/dashboard">
+              <Image
+                src="/pursify_logo.png"
+                alt="Pursify Logo"
+                width={120}
+                height={60}
+                className="w-auto max-h-[40px] object-contain sm:max-h-[60px]"
+              />
+            </Link>
+          </SignedIn>
           <SignedOut>
-            <a href="#features" className="text-gray-600 hover:text-blue-600">
-              Features
-            </a>
+            <Link href="/">
+              <Image
+                src="/pursify_logo.png"
+                alt="Pursify Logo"
+                width={120}
+                height={60}
+                className="w-auto max-h-[40px] object-contain sm:max-h-[60px]"
+              />
+            </Link>
           </SignedOut>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center space-x-4">
           <SignedIn>
             <Link
               href="/dashboard"
-              className="text-gray-600 hover:text-blue-600 flex items-center gap-2"
+              className={`flex items-center gap-2 text-base transition-colors ${
+                pathname === "/dashboard" 
+                  ? "text-green-600" 
+                  : "text-gray-600 hover:text-green-600"
+              }`}
             >
-              <Button variant="outline">
-                <LayoutDashboard size={25} />
-                <span className="hidden md:inline">Dashboard</span>
-              </Button>
+              <LayoutDashboard size={20} />
+              <span className="hidden md:inline">Dashboard</span>
             </Link>
-            <a href="/transaction/create">
-              <Button className="flex items-center gap-2">
+            <Link
+              href="/transaction"
+              className={`flex items-center gap-2 text-base transition-colors ${
+                pathname === "/transaction" 
+                  ? "text-green-600" 
+                  : "text-gray-600 hover:text-green-600"
+              }`}
+            >
+              <Receipt size={20} />
+              <span className="hidden md:inline">Transactions</span>
+            </Link>
+          </SignedIn>
+        </div>
+        <div className="flex items-center gap-4">
+          <SignedIn>
+            <Link href="/transaction/create">
+              <Button className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-base" type="button">
                 <PenBox size={18} />
                 <span className="hidden md:inline">Add Transaction</span>
               </Button>
-            </a>
+            </Link>
           </SignedIn>
           <SignedOut>
             <SignInButton forceRedirectUrl="/dashboard">
-              <Button variant="outline">Login</Button>
+              <Button variant="outline" className="px-4 py-2 text-base">Login</Button>
             </SignInButton>
           </SignedOut>
           <SignedIn>

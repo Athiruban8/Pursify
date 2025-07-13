@@ -8,12 +8,16 @@ import { revalidatePath } from "next/cache";
 
 const serializeTransaction = (obj) => {
   const serialized = { ...obj };
-  if (obj.balance) {
-    serialized.balance = obj.balance.toNumber();
-  }
-  if (obj.amount) {
-    serialized.amount = obj.amount.toNumber();
-  }
+  // Handle all Decimal fields
+  Object.keys(serialized).forEach((key) => {
+    if (
+      serialized[key] &&
+      typeof serialized[key] === "object" &&
+      serialized[key].toNumber
+    ) {
+      serialized[key] = serialized[key].toNumber();
+    }
+  });
   return serialized;
 };
 
