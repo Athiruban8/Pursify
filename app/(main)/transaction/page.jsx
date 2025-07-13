@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { Suspense } from "react";
 import { getAllTransactions } from "@/actions/transaction";
 import { getAllAccounts } from "@/actions/account";
